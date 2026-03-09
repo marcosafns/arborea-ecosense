@@ -49,7 +49,8 @@ export default function LoginPage() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.push("/dashboard");
+        router.refresh();
+        window.location.href = "/dashboard";
       } else {
         const { error } = await supabase.auth.signUp({
           email, password,
