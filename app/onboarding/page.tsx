@@ -74,7 +74,10 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from("clients").upsert({
-        id: user.id, full_name: fullName.trim(), company: company.trim(),
+        id:        user.id,
+        email:     user.email,
+        full_name: fullName.trim(),
+        company:   company.trim(),
       });
     }
     setLoading(false);
