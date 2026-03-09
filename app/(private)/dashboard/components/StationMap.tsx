@@ -23,7 +23,6 @@ export default function StationMap({ latitude, longitude, stationName }: Props) 
 
     const init = async () => {
       const L = (await import("leaflet")).default;
-      await import("leaflet/dist/leaflet.css");
 
       // Checagem extra: se o container já foi inicializado pelo Leaflet
       if ((mapRef.current as any)._leaflet_id) return;

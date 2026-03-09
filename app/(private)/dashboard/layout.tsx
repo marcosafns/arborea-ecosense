@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import "leaflet/dist/leaflet.css";
 import { redirect } from "next/navigation";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
