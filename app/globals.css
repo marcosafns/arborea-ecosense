@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+@theme {
+  --font-syne: 'Syne', sans-serif;
+  --font-dm-sans: 'DM Sans', sans-serif;
+  --color-brand: #1a5c2e;
+  --color-brand-light: #2d8a4e;
+  --color-brand-muted: #4a9e6b;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* DARK THEME (padrão) */
+:root {
+  --bg: #0b0f0c;
+  --bg-card: #111814;
+  --bg-card-hover: #162019;
+  --border: #1e3028;
+  --border-hover: #2a4a38;
+  --text-primary: #f0f4f1;
+  --text-secondary: #7a9e88;
+  --text-muted: #3d5c4a;
+  --surface: #0f1712;
+}
+
+/* LIGHT THEME */
+[data-theme="light"] {
+  --bg: #f5f7f5;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f5f1;
+  --border: #d0e0d6;
+  --border-hover: #a0c4b0;
+  --text-primary: #0b1f12;
+  --text-secondary: #3d6b4a;
+  --text-muted: #7aaa8a;
+  --surface: #e8f0eb;
+}
+
+body {
+  font-family: var(--font-dm-sans);
+  background-color: var(--bg);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-syne);
+}
+
+/* Scrollbar personalizada — fina e discreta */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1a5c2e44;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1a5c2e99;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1a5c2e44 transparent;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes float-delayed {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-float { animation: float 4s ease-in-out infinite; }
+.animate-float-delayed { animation: float-delayed 5s ease-in-out infinite 1s; }
+.animate-fade-up { animation: fade-up 0.7s ease forwards; }
+
