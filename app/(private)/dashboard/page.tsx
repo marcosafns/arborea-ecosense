@@ -1,5 +1,7 @@
 "use client";
 
+// app/(private)/dashboard/page.tsx
+
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { motion } from "motion/react";
@@ -29,13 +31,7 @@ export default function DashboardPage() {
         .eq("client_id", user.id)
         .eq("status", "active");
 
-      if (stErr) {
-        error("Erro ao carregar estações", stErr.message);
-        setLoading(false);
-        return;
-      }
-
-      const st = data ?? [];
+      if (stErr) { error("Erro ao carregar estações", stErr.message); setLoading(false); return; }
 
       const { count, error: alErr } = await supabase
         .from("alerts")
@@ -44,7 +40,7 @@ export default function DashboardPage() {
 
       if (alErr) error("Erro ao carregar alertas", alErr.message);
 
-      setStations(st);
+      setStations(data ?? []);
       setActiveAlerts(count ?? 0);
       setLoading(false);
     };
@@ -103,13 +99,10 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}
+          style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
         >
           <div>
-            <h1 style={{
-              color: "#0f1f12", fontSize: 22, fontWeight: 700,
-              fontFamily: "var(--font-syne)", marginBottom: 4,
-            }}>
+            <h1 style={{ color: "#0f1f12", fontSize: 22, fontWeight: 700, fontFamily: "var(--font-syne)", marginBottom: 4 }}>
               Visão Geral
             </h1>
             <p style={{ color: "#7aaa8a", fontSize: 13 }}>
@@ -122,12 +115,17 @@ export default function DashboardPage() {
           />
         </motion.div>
 
-        {/* Métricas */}
+        {/* Métricas — 2 colunas mobile, 4 colunas desktop */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 12,
+          }}
+          className="metrics-grid"
         >
           {METRICS.map((metric, i) => (
             <motion.div
@@ -139,7 +137,7 @@ export default function DashboardPage() {
               style={{
                 backgroundColor: "#ffffff",
                 border: "1px solid #e8ede9",
-                borderRadius: 14, padding: "18px 20px",
+                borderRadius: 14, padding: "16px 18px",
                 boxShadow: "0 1px 4px #0f1f1206",
                 position: "relative", overflow: "hidden",
                 transition: "box-shadow 0.2s",
@@ -150,33 +148,22 @@ export default function DashboardPage() {
                 height: 3, backgroundColor: metric.color,
                 opacity: 0.35, borderRadius: "14px 14px 0 0",
               }} />
-              <div style={{
-                display: "flex", alignItems: "flex-start",
-                justifyContent: "space-between", marginTop: 4,
-              }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginTop: 4 }}>
                 <div>
-                  <div style={{
-                    color: "#9ab4a2", fontSize: 11, marginBottom: 8,
-                    textTransform: "uppercase", letterSpacing: "0.08em",
-                  }}>
+                  <div style={{ color: "#9ab4a2", fontSize: 10, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {metric.label}
                   </div>
-                  <div style={{
-                    color: "#0f1f12", fontSize: 28, fontWeight: 700,
-                    fontFamily: "var(--font-geist-mono)", lineHeight: 1, marginBottom: 6,
-                  }}>
+                  <div style={{ color: "#0f1f12", fontSize: 26, fontWeight: 700, fontFamily: "var(--font-geist-mono)", lineHeight: 1, marginBottom: 4 }}>
                     {metric.value}
                   </div>
                   <div style={{ color: "#b0c4b8", fontSize: 11 }}>{metric.sub}</div>
                 </div>
                 <div style={{
-                  width: 38, height: 38, borderRadius: 10,
-                  backgroundColor: metric.bg,
-                  border: `1px solid ${metric.border}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0,
+                  width: 36, height: 36, borderRadius: 10,
+                  backgroundColor: metric.bg, border: `1px solid ${metric.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
-                  <metric.Icon style={{ width: 17, height: 17, color: metric.color }} />
+                  <metric.Icon style={{ width: 16, height: 16, color: metric.color }} />
                 </div>
               </div>
             </motion.div>
@@ -185,10 +172,7 @@ export default function DashboardPage() {
 
         {/* Estações ou estado vazio */}
         {stations.length === 0 ? (
-          <div style={{
-            backgroundColor: "#ffffff", border: "1px solid #e8ede9",
-            borderRadius: 16,
-          }}>
+          <div style={{ backgroundColor: "#ffffff", border: "1px solid #e8ede9", borderRadius: 16 }}>
             <EmptyState {...EMPTY_STATES.dashboard} />
           </div>
         ) : (
@@ -197,42 +181,33 @@ export default function DashboardPage() {
               key={station.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: si * 0.1, ease: "easeOut" }}
+              transition={{ duration: 0.4, delay: si * 0.1 }}
             >
               {/* Station header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
                 <motion.div
                   animate={{ scale: [1, 1.3, 1] }}
                   transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  style={{
-                    width: 7, height: 7, borderRadius: "50%",
-                    backgroundColor: "#1a5c2e", boxShadow: "0 0 5px #1a5c2e66",
-                  }}
+                  style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#1a5c2e", boxShadow: "0 0 5px #1a5c2e66", flexShrink: 0 }}
                 />
-                <h2 style={{ color: "#0f1f12", fontSize: 14, fontWeight: 600 }}>
-                  {station.name}
-                </h2>
-                <span style={{
-                  fontSize: 11, color: "#7aaa8a",
-                  backgroundColor: "#f0f7f2", border: "1px solid #c8e0cf",
-                  borderRadius: 999, padding: "2px 8px",
-                }}>
+                <h2 style={{ color: "#0f1f12", fontSize: 14, fontWeight: 600 }}>{station.name}</h2>
+                <span style={{ fontSize: 11, color: "#7aaa8a", backgroundColor: "#f0f7f2", border: "1px solid #c8e0cf", borderRadius: 999, padding: "2px 8px" }}>
                   {station.sensors?.length} sensores
                 </span>
               </div>
 
-              {/* Cards grid */}
+              {/* Cards grid — auto-fill mobile-friendly */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                gap: 16,
+                gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
+                gap: 14,
               }}>
                 {station.sensors?.map((sensor: any, i: number) => (
                   <motion.div
                     key={sensor.id}
                     initial={{ opacity: 0, y: 24, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.4, delay: si * 0.1 + i * 0.06, ease: "easeOut" }}
+                    transition={{ duration: 0.4, delay: si * 0.1 + i * 0.06 }}
                   >
                     <SensorCard
                       sensorId={sensor.id}
@@ -249,6 +224,13 @@ export default function DashboardPage() {
           ))
         )}
       </div>
+
+      {/* Métricas: 4 colunas em desktop */}
+      <style>{`
+        @media (min-width: 640px) {
+          .metrics-grid { grid-template-columns: repeat(4, 1fr) !important; }
+        }
+      `}</style>
     </RealtimeProvider>
   );
 }

@@ -1,9 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import "leaflet/dist/leaflet.css";
 import { redirect } from "next/navigation";
-import Sidebar from "./components/Sidebar";
-import Topbar from "./components/Topbar";
-import PageTransition from "./components/PageTransition";
+import DashboardShell from "./components/DashboardShell";
 import { ToastProvider } from "./components/Toast";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -13,27 +11,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToastProvider>
-      <div
-        data-theme="light"
-        style={{
-          display: "flex", minHeight: "100vh",
-          backgroundColor: "#f7f8f7",
-          fontFamily: "'DM Sans', sans-serif",
-        }}
-      >
-        <Sidebar />
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <Topbar />
-          <main style={{
-            flex: 1, overflow: "auto", padding: 32,
-            backgroundColor: "#f7f8f7",
-          }}>
-            <PageTransition>
-              {children}
-            </PageTransition>
-          </main>
-        </div>
-      </div>
+      <DashboardShell>{children}</DashboardShell>
     </ToastProvider>
   );
 }

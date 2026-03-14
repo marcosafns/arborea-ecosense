@@ -4,12 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Radio, Cpu, MapPin, Wifi, WifiOff, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { Plus, Radio, Cpu, MapPin, Wifi, WifiOff, Trash2, Loader2, AlertTriangle, Lock } from "lucide-react";
 import StationModal from "../components/StationModal";
 import StationsSkeleton from "../components/StationsSkeleton";
 import EmptyState, { EMPTY_STATES } from "../components/EmptyState";
 import { useToast } from "../components/Toast";
 import Link from "next/link";
+import { usePlan } from "@/hooks/usePlan";
+import { canAddStation } from "@/lib/plans";
 
 const TYPE_LABELS: Record<string, string> = {
   temperature:   "Temperatura",
@@ -166,6 +168,7 @@ export default function StationsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const supabase = createClient();
   const { success, error } = useToast();
+  const { plan, stationsLeft } = usePlan();
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -215,6 +218,9 @@ export default function StationsPage() {
 
   if (loading) return <StationsSkeleton />;
 
+  // Verifica se pode adicionar mais estações
+  const allowed = canAddStation(plan.id, stations.length);
+
   return (
     <>
       <StationModal open={modal} onClose={() => setModal(false)} onCreated={handleCreated} />
@@ -228,6 +234,7 @@ export default function StationsPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
 
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -243,26 +250,100 @@ export default function StationsPage() {
             </h1>
             <p style={{ color: "#7aaa8a", fontSize: 13 }}>
               {stations.length} estação{stations.length !== 1 ? "ões" : ""} cadastrada{stations.length !== 1 ? "s" : ""}
+              {stationsLeft !== null && (
+                <span style={{ color: stationsLeft === 0 ? "#e05252" : "#b0c4b8", marginLeft: 8 }}>
+                  · {stationsLeft === 0 ? "limite atingido" : `${stationsLeft} restante${stationsLeft !== 1 ? "s" : ""}`}
+                </span>
+              )}
             </p>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.03, backgroundColor: "#1e6b34" }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setModal(true)}
-            style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "10px 18px", borderRadius: 10,
-              backgroundColor: "#1a5c2e", border: "none",
-              color: "#fff", fontSize: 13, fontWeight: 600,
-              cursor: "pointer", boxShadow: "0 4px 16px #1a5c2e33",
-              transition: "background-color 0.2s",
-            }}
-          >
-            <Plus style={{ width: 15, height: 15 }} />
-            Nova Estação
-          </motion.button>
+
+          {/* Botão Nova Estação — bloqueado se atingiu limite */}
+          <div style={{ position: "relative" }}>
+            <motion.button
+              whileHover={allowed ? { scale: 1.03, backgroundColor: "#1e6b34" } : { scale: 1 }}
+              whileTap={allowed ? { scale: 0.97 } : {}}
+              onClick={() => allowed && setModal(true)}
+              title={!allowed ? `Limite do plano ${plan.name}: ${plan.maxStations} estação${plan.maxStations !== 1 ? "ões" : ""}` : undefined}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "10px 18px", borderRadius: 10,
+                backgroundColor: allowed ? "#1a5c2e" : "#c8d8ce",
+                border: "none",
+                color: "#fff", fontSize: 13, fontWeight: 600,
+                cursor: allowed ? "pointer" : "not-allowed",
+                boxShadow: allowed ? "0 4px 16px #1a5c2e33" : "none",
+                transition: "all 0.2s",
+              }}
+            >
+              {allowed
+                ? <Plus style={{ width: 15, height: 15 }} />
+                : <Lock style={{ width: 13, height: 13 }} />
+              }
+              Nova Estação
+              {!allowed && (
+                <span style={{
+                  fontSize: 10, backgroundColor: "#ffffff22",
+                  borderRadius: 999, padding: "1px 6px",
+                }}>
+                  {plan.name}
+                </span>
+              )}
+            </motion.button>
+
+            {/* Tooltip de upgrade quando bloqueado */}
+            {!allowed && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 8px)", right: 0,
+                backgroundColor: "#0f1f12", color: "#ffffff",
+                fontSize: 11, borderRadius: 8, padding: "8px 12px",
+                whiteSpace: "nowrap", zIndex: 10,
+                boxShadow: "0 4px 16px #0f1f1233",
+                pointerEvents: "none",
+                opacity: 0,
+              }}
+                className="plan-tooltip"
+              >
+                Faça upgrade para adicionar mais estações
+              </div>
+            )}
+          </div>
         </motion.div>
 
+        {/* Banner de upgrade quando no limite */}
+        {!allowed && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "12px 16px", borderRadius: 12,
+              backgroundColor: "#fdf8f0", border: "1px solid #f0ddb0",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Lock style={{ width: 14, height: 14, color: "#c4942a", flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: "#8a6a1a" }}>
+                Você atingiu o limite de <strong>{plan.maxStations} estação{plan.maxStations !== 1 ? "ões" : ""}</strong> do plano {plan.name}.
+              </span>
+            </div>
+            <Link
+              href="/dashboard/settings?tab=conta"
+              style={{
+                fontSize: 12, fontWeight: 600, color: "#c4942a",
+                backgroundColor: "#f0ddb0", borderRadius: 999,
+                padding: "5px 12px", textDecoration: "none",
+                whiteSpace: "nowrap", flexShrink: 0,
+                transition: "all 0.15s",
+              }}
+            >
+              Ver planos
+            </Link>
+          </motion.div>
+        )}
+
+        {/* Lista de estações */}
         <AnimatePresence>
           {stations.length === 0 ? (
             <motion.div
@@ -275,7 +356,7 @@ export default function StationsPage() {
             >
               <EmptyState
                 {...EMPTY_STATES.stations}
-                action={{ label: "Criar estação", onClick: () => setModal(true) }}
+                action={allowed ? { label: "Criar estação", onClick: () => setModal(true) } : undefined}
               />
             </motion.div>
           ) : (

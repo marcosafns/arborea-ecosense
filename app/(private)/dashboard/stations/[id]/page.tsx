@@ -63,79 +63,51 @@ export default function StationDetailPage() {
 
     if (err || !data) {
       if (err) error("Erro ao carregar estação", err.message);
-      setNotFound(true);
-      setLoading(false);
-      return;
+      setNotFound(true); setLoading(false); return;
     }
     setStation(data);
 
     const sensorIds = data.sensors?.map((s: any) => s.id) ?? [];
-
-    const [{ count: totalReadings, error: rdErr }, { count: activeAlerts, error: alErr }] = await Promise.all([
-      supabase
-        .from("readings")
-        .select("*", { count: "exact", head: true })
-        .in("sensor_id", sensorIds),
-      supabase
-        .from("alerts")
-        .select("*", { count: "exact", head: true })
-        .in("sensor_id", sensorIds)
-        .is("resolved_at", null),
+    const [{ count: totalReadings }, { count: activeAlerts }] = await Promise.all([
+      supabase.from("readings").select("*", { count: "exact", head: true }).in("sensor_id", sensorIds),
+      supabase.from("alerts").select("*", { count: "exact", head: true }).in("sensor_id", sensorIds).is("resolved_at", null),
     ]);
 
-    if (rdErr) error("Erro ao carregar leituras", rdErr.message);
-    if (alErr) error("Erro ao carregar alertas", alErr.message);
-
-    setStats({
-      totalReadings: totalReadings ?? 0,
-      activeAlerts:  activeAlerts  ?? 0,
-    });
-
+    setStats({ totalReadings: totalReadings ?? 0, activeAlerts: activeAlerts ?? 0 });
     setLoading(false);
   }, [id]);
 
   useEffect(() => { load(); }, []);
 
-  if (loading) return <StationDetailSkeleton />;
-
+  if (loading)  return <StationDetailSkeleton />;
   if (notFound) return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      style={{ textAlign: "center", padding: "80px 0" }}
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: "center", padding: "80px 0" }}>
       <p style={{ color: "#b0c4b8", fontSize: 14, marginBottom: 16 }}>Estação não encontrada.</p>
       <Link href="/dashboard/stations" style={{ color: "#1a5c2e", fontSize: 13 }}>← Voltar</Link>
     </motion.div>
   );
 
   const sensorIds   = station.sensors?.map((s: any) => s.id) ?? [];
-  const isOnline    = station.last_seen_at
-    ? Date.now() - new Date(station.last_seen_at).getTime() < 2 * 60 * 1000
-    : false;
+  const isOnline    = station.last_seen_at ? Date.now() - new Date(station.last_seen_at).getTime() < 2 * 60 * 1000 : false;
   const hasLocation = station.latitude && station.longitude;
 
   return (
     <RealtimeProvider sensorIds={sensorIds}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
         {/* Breadcrumb */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          style={{ display: "flex", alignItems: "center", gap: 10 }}
+          style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
         >
           <motion.div whileHover={{ x: -2 }} whileTap={{ scale: 0.95 }}>
-            <Link
-              href="/dashboard/stations"
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                color: "#9ab4a2", fontSize: 13, textDecoration: "none",
-                padding: "6px 10px", borderRadius: 8,
-                border: "1px solid #e8ede9", backgroundColor: "#ffffff",
-              }}
-            >
+            <Link href="/dashboard/stations" style={{
+              display: "flex", alignItems: "center", gap: 6,
+              color: "#9ab4a2", fontSize: 13, textDecoration: "none",
+              padding: "6px 10px", borderRadius: 8,
+              border: "1px solid #e8ede9", backgroundColor: "#ffffff",
+            }}>
               <ArrowLeft style={{ width: 13, height: 13 }} />
               Estações
             </Link>
@@ -148,34 +120,29 @@ export default function StationDetailPage() {
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
           style={{
-            backgroundColor: "#ffffff",
-            border: "1px solid #e8ede9",
-            borderRadius: 16, padding: "24px",
-            display: "flex", alignItems: "flex-start",
-            justifyContent: "space-between", gap: 20,
-            flexWrap: "wrap",
+            backgroundColor: "#ffffff", border: "1px solid #e8ede9",
+            borderRadius: 16, padding: "20px",
+            display: "flex", flexDirection: "column", gap: 16,
           }}
         >
-          {/* Esquerda */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {/* Topo: ícone + nome + badges */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
             <motion.div
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 3, repeat: Infinity }}
               style={{
-                width: 52, height: 52, borderRadius: 14,
+                width: 48, height: 48, borderRadius: 13,
                 backgroundColor: "#f0f7f2", border: "1px solid #c8e0cf",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}
             >
-              <Radio style={{ width: 22, height: 22, color: "#1a5c2e" }} />
+              <Radio style={{ width: 20, height: 20, color: "#1a5c2e" }} />
             </motion.div>
 
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <h1 style={{ color: "#0f1f12", fontSize: 20, fontWeight: 700, fontFamily: "var(--font-syne)" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                <h1 style={{ color: "#0f1f12", fontSize: 18, fontWeight: 700, fontFamily: "var(--font-syne)" }}>
                   {station.name}
                 </h1>
                 <div style={{
@@ -208,9 +175,8 @@ export default function StationDetailPage() {
                   </motion.div>
                 )}
               </div>
-
               {station.description && (
-                <p style={{ color: "#9ab4a2", fontSize: 13, marginBottom: 6 }}>{station.description}</p>
+                <p style={{ color: "#9ab4a2", fontSize: 13, marginBottom: 4 }}>{station.description}</p>
               )}
               {hasLocation && (
                 <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#b0c4b8" }}>
@@ -223,14 +189,9 @@ export default function StationDetailPage() {
             </div>
           </div>
 
-          {/* Direita — export + stats */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
-            <ExportButton
-              stationId={station.id}
-              stationName={station.name}
-              sensorIds={sensorIds}
-            />
-            <div style={{ display: "flex", gap: 10 }}>
+          {/* Stats + Export — linha separada, wrap no mobile */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {[
                 { icon: Cpu,      label: "Sensores",  value: station.sensors?.length ?? 0 },
                 { icon: Activity, label: "Leituras",  value: stats.totalReadings.toLocaleString() },
@@ -242,25 +203,32 @@ export default function StationDetailPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 + i * 0.07 }}
                   style={{
-                    backgroundColor: "#fafcfa",
-                    border: "1px solid #f0f4f1",
-                    borderRadius: 12, padding: "10px 16px",
-                    textAlign: "center", minWidth: 80,
+                    backgroundColor: "#fafcfa", border: "1px solid #f0f4f1",
+                    borderRadius: 10, padding: "8px 14px",
+                    display: "flex", alignItems: "center", gap: 8,
                   }}
                 >
-                  <stat.icon style={{ width: 14, height: 14, color: "#9ab4a2", margin: "0 auto 5px" }} />
-                  <div style={{ color: "#0f1f12", fontSize: 15, fontWeight: 700, fontFamily: "var(--font-geist-mono)" }}>
-                    {stat.value}
+                  <stat.icon style={{ width: 13, height: 13, color: "#9ab4a2" }} />
+                  <div>
+                    <div style={{ color: "#0f1f12", fontSize: 13, fontWeight: 700, fontFamily: "var(--font-geist-mono)" }}>
+                      {stat.value}
+                    </div>
+                    <div style={{ color: "#b0c4b8", fontSize: 10 }}>{stat.label}</div>
                   </div>
-                  <div style={{ color: "#b0c4b8", fontSize: 10 }}>{stat.label}</div>
                 </motion.div>
               ))}
             </div>
+            <ExportButton stationId={station.id} stationName={station.name} sensorIds={sensorIds} />
           </div>
         </motion.div>
 
-        {/* Mapa + Lista de sensores */}
-        <div style={{ display: "grid", gridTemplateColumns: hasLocation ? "1fr 1fr" : "1fr", gap: 16 }}>
+        {/* Mapa + Sensores instalados */}
+        {/* No mobile empilha, no desktop fica lado a lado quando tem localização */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: hasLocation ? "1fr 1fr" : "1fr",
+          gap: 16,
+        }} className="map-sensors-grid">
           {hasLocation && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -268,13 +236,13 @@ export default function StationDetailPage() {
               transition={{ delay: 0.2 }}
               style={{
                 backgroundColor: "#ffffff", border: "1px solid #e8ede9",
-                borderRadius: 16, overflow: "hidden", height: 300,
+                borderRadius: 16, overflow: "hidden", height: 280,
               }}
             >
-              <div style={{ padding: "14px 18px", borderBottom: "1px solid #f0f4f1" }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid #f0f4f1" }}>
                 <span style={{ color: "#0f1f12", fontSize: 13, fontWeight: 600 }}>Localização</span>
               </div>
-              <div style={{ height: "calc(100% - 48px)" }}>
+              <div style={{ height: "calc(100% - 44px)" }}>
                 <StationMap
                   latitude={parseFloat(station.latitude)}
                   longitude={parseFloat(station.longitude)}
@@ -290,11 +258,11 @@ export default function StationDetailPage() {
             transition={{ delay: 0.25 }}
             style={{
               backgroundColor: "#ffffff", border: "1px solid #e8ede9",
-              borderRadius: 16, padding: "18px",
-              height: 300, overflowY: "auto",
+              borderRadius: 16, padding: "16px",
+              height: 280, overflowY: "auto",
             }}
           >
-            <div style={{ color: "#0f1f12", fontSize: 13, fontWeight: 600, marginBottom: 14 }}>
+            <div style={{ color: "#0f1f12", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
               Sensores instalados
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -306,16 +274,12 @@ export default function StationDetailPage() {
                   transition={{ delay: 0.3 + i * 0.05 }}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "10px 14px",
-                    backgroundColor: "#fafcfa", border: "1px solid #f0f4f1",
-                    borderRadius: 10,
+                    padding: "9px 12px",
+                    backgroundColor: "#fafcfa", border: "1px solid #f0f4f1", borderRadius: 10,
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                      backgroundColor: TYPE_COLORS[sensor.type] ?? "#1a5c2e",
-                    }} />
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, backgroundColor: TYPE_COLORS[sensor.type] ?? "#1a5c2e" }} />
                     <div>
                       <div style={{ color: "#0f1f12", fontSize: 12, fontWeight: 500 }}>{sensor.label}</div>
                       <div style={{ color: "#b0c4b8", fontSize: 11 }}>{TYPE_LABELS[sensor.type] ?? sensor.type}</div>
@@ -339,14 +303,10 @@ export default function StationDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <div style={{ color: "#0f1f12", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+          <div style={{ color: "#0f1f12", fontSize: 14, fontWeight: 600, marginBottom: 14 }}>
             Leituras em tempo real
           </div>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: 16,
-          }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))", gap: 14 }}>
             {station.sensors?.map((sensor: any, i: number) => (
               <motion.div
                 key={sensor.id}
@@ -368,6 +328,13 @@ export default function StationDetailPage() {
         </motion.div>
 
       </div>
+
+      {/* Mobile: mapa e sensores empilham */}
+      <style>{`
+        @media (max-width: 640px) {
+          .map-sensors-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </RealtimeProvider>
   );
 }

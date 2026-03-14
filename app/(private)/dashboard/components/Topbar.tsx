@@ -3,28 +3,34 @@
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "motion/react";
-import { Shield, Search, X, Radio, BarChart2, Bell, Settings, ArrowRight } from "lucide-react";
+import { Shield, Search, X, Radio, BarChart2, Bell, Settings, ArrowRight, Menu } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const SEARCH_INDEX = [
-  { label: "Visão Geral",   href: "/dashboard",           icon: BarChart2, description: "Painel principal com todos os sensores" },
-  { label: "Gráficos",      href: "/dashboard/charts",    icon: BarChart2, description: "Histórico detalhado por sensor" },
-  { label: "Estações",      href: "/dashboard/stations",  icon: Radio,     description: "Gerenciar estações de monitoramento" },
-  { label: "Alertas",       href: "/dashboard/alerts",    icon: Bell,      description: "Anomalias e eventos detectados" },
-  { label: "Configurações", href: "/dashboard/settings",  icon: Settings,  description: "Perfil, plano e segurança" },
+  { label: "Visão Geral",   href: "/dashboard",          icon: BarChart2, description: "Painel principal com todos os sensores" },
+  { label: "Gráficos",      href: "/dashboard/charts",   icon: BarChart2, description: "Histórico detalhado por sensor" },
+  { label: "Estações",      href: "/dashboard/stations", icon: Radio,     description: "Gerenciar estações de monitoramento" },
+  { label: "Alertas",       href: "/dashboard/alerts",   icon: Bell,      description: "Anomalias e eventos detectados" },
+  { label: "Configurações", href: "/dashboard/settings", icon: Settings,  description: "Perfil, plano e segurança" },
 ];
 
-export default function Topbar() {
-  const [email,       setEmail]       = useState("");
-  const [search,      setSearch]      = useState("");
-  const [focused,     setFocused]     = useState(false);
-  const [results,     setResults]     = useState(SEARCH_INDEX);
-  const inputRef  = useRef<HTMLInputElement>(null);
-  const panelRef  = useRef<HTMLDivElement>(null);
-  const supabase  = createClient();
-  const router    = useRouter();
+interface TopbarProps {
+  // Novas props para suporte mobile — opcionais para não quebrar nada
+  showMenuButton?: boolean;
+  onMenuClick?:    () => void;
+}
+
+export default function Topbar({ showMenuButton, onMenuClick }: TopbarProps) {
+  const [email,   setEmail]   = useState("");
+  const [search,  setSearch]  = useState("");
+  const [focused, setFocused] = useState(false);
+  const [results, setResults] = useState(SEARCH_INDEX);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const supabase = createClient();
+  const router   = useRouter();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -76,7 +82,7 @@ export default function Topbar() {
     setSearch("");
   };
 
-  const initials = email ? email[0].toUpperCase() : "?";
+  const initials  = email ? email[0].toUpperCase() : "?";
   const showPanel = focused;
 
   return (
@@ -108,38 +114,71 @@ export default function Topbar() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "0 32px",
+          padding: "0 20px",
+          gap: 12,
           flexShrink: 0,
           position: "relative",
           zIndex: 45,
         }}
       >
-        {/* Esquerda — data + status */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ color: "#9ab4a2", fontSize: 12 }}>
-            {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
-          </span>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, type: "spring" }}
-            style={{
-              display: "flex", alignItems: "center", gap: 5,
-              backgroundColor: "#f0f7f2", border: "1px solid #c8e0cf",
-              borderRadius: 999, padding: "3px 10px",
-            }}
-          >
-            <motion.span
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#1a5c2e", display: "block" }}
-            />
-            <span style={{ color: "#1a5c2e", fontSize: 11, fontWeight: 600 }}>Sistema operacional</span>
-          </motion.div>
+        {/* ── Esquerda ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+
+          {/* Botão hambúrguer — só aparece no mobile */}
+          <AnimatePresence>
+            {showMenuButton && (
+              <motion.button
+                key="hamburger"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onMenuClick}
+                style={{
+                  width: 34, height: 34, borderRadius: 9,
+                  border: "1px solid #e8ede9", backgroundColor: "#fafcfa",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                <Menu style={{ width: 15, height: 15, color: "#6b8f78" }} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          {/* Data e status — esconde em telas muito pequenas */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }} className="topbar-left-content">
+            <span style={{ color: "#9ab4a2", fontSize: 12, whiteSpace: "nowrap" }}>
+              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+            </span>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, type: "spring" }}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                backgroundColor: "#f0f7f2", border: "1px solid #c8e0cf",
+                borderRadius: 999, padding: "3px 10px",
+              }}
+            >
+              <motion.span
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#1a5c2e", display: "block" }}
+              />
+              <span style={{ color: "#1a5c2e", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>
+                Sistema operacional
+              </span>
+            </motion.div>
+          </div>
         </div>
 
-        {/* Centro — busca global */}
-        <div ref={panelRef} style={{ position: "relative", width: 340 }}>
+        {/* ── Centro — busca global (esconde em mobile) ── */}
+        <div
+          ref={panelRef}
+          style={{ position: "relative", flex: "0 1 340px", minWidth: 0 }}
+          className="topbar-search"
+        >
           <motion.div
             animate={{
               boxShadow: focused ? "0 0 0 2px #1a5c2e33" : "0 0 0 0px transparent",
@@ -165,12 +204,13 @@ export default function Topbar() {
                 flex: 1, border: "none", outline: "none",
                 backgroundColor: "transparent",
                 fontSize: 13, color: "#0f1f12",
-                fontFamily: "inherit",
+                fontFamily: "inherit", minWidth: 0,
               }}
             />
             <AnimatePresence>
               {search ? (
                 <motion.button
+                  key="clear"
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
@@ -181,6 +221,7 @@ export default function Topbar() {
                 </motion.button>
               ) : (
                 <motion.span
+                  key="hint"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -251,11 +292,11 @@ export default function Topbar() {
                         }}>
                           <item.icon style={{ width: 13, height: 13, color: "#1a5c2e" }} />
                         </div>
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ color: "#0f1f12", fontSize: 13, fontWeight: 500 }}>{item.label}</div>
                           <div style={{ color: "#9ab4a2", fontSize: 11 }}>{item.description}</div>
                         </div>
-                        <ArrowRight style={{ width: 13, height: 13, color: "#c8d8ce" }} />
+                        <ArrowRight style={{ width: 13, height: 13, color: "#c8d8ce", flexShrink: 0 }} />
                       </motion.button>
                     ))}
                   </>
@@ -265,22 +306,27 @@ export default function Topbar() {
           </AnimatePresence>
         </div>
 
-        {/* Direita */}
+        {/* ── Direita ── */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
-          style={{ display: "flex", alignItems: "center", gap: 10 }}
+          style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#b0c4b8", fontSize: 11 }}>
+          {/* "Conexão segura" — esconde em mobile */}
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 5, color: "#b0c4b8", fontSize: 11 }}
+            className="topbar-secure"
+          >
             <Shield style={{ width: 13, height: 13 }} />
             <span>Conexão segura</span>
           </div>
 
-          <div style={{ width: 1, height: 20, backgroundColor: "#e8ede9", margin: "0 4px" }} />
+          <div className="topbar-secure" style={{ width: 1, height: 20, backgroundColor: "#e8ede9", margin: "0 4px" }} />
 
           <NotificationBell />
 
+          {/* Avatar + nome — nome esconde em mobile */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <motion.div
               whileHover={{ scale: 1.05 }}
@@ -289,11 +335,12 @@ export default function Topbar() {
                 backgroundColor: "#1a5c2e",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 color: "#fff", fontSize: 13, fontWeight: 700,
+                cursor: "pointer", flexShrink: 0,
               }}
             >
               {initials}
             </motion.div>
-            <div style={{ lineHeight: 1.3 }}>
+            <div style={{ lineHeight: 1.3 }} className="topbar-username">
               <div style={{ color: "#0f1f12", fontSize: 12, fontWeight: 600 }}>
                 {email.split("@")[0]}
               </div>
@@ -304,6 +351,20 @@ export default function Topbar() {
           </div>
         </motion.div>
       </motion.header>
+
+      {/* Media queries para ocultar elementos no mobile */}
+      <style>{`
+        @media (max-width: 767px) {
+          .topbar-left-content { display: none !important; }
+          .topbar-search        { display: none !important; }
+          .topbar-secure        { display: none !important; }
+          .topbar-username      { display: none !important; }
+        }
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .topbar-secure   { display: none !important; }
+          .topbar-username { display: none !important; }
+        }
+      `}</style>
     </>
   );
 }

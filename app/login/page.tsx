@@ -49,22 +49,41 @@ export default function LoginPage() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.refresh();
         window.location.href = "/dashboard";
+
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: { emailRedirectTo: `${window.location.origin}/dashboard` },
         });
         if (error) throw error;
-        setSuccess("Verifique seu email para confirmar o cadastro!");
-      }
-    } catch (err: any) {
-      setError(err.message || "Ocorreu um erro. Tente novamente.");
-    } finally {
-      setLoading(false);
+
+        // Cria o perfil na tabela clients se ainda não existir
+        if (data.user) {
+          await supabase.from("clients").upsert({
+            id:       data.user.id,
+            plan_id:  "semente",
+            full_name: "",
+            company:  "",
+            city:     "",
+          }, { onConflict: "id", ignoreDuplicates: true });
+        }
+
+      setSuccess("Verifique seu email para confirmar o cadastro!");
     }
-  };
+  } catch (err: any) {
+    // Traduz erros comuns do Supabase
+    const msg: Record<string, string> = {
+      "User already registered":          "Este email já está cadastrado. Faça login.",
+      "Invalid login credentials":        "Email ou senha incorretos.",
+      "Email not confirmed":              "Confirme seu email antes de entrar.",
+      "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres.",
+    };
+    setError(msg[err.message] ?? err.message ?? "Ocorreu um erro. Tente novamente.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const isReady = email.length > 0 && password.length >= 6;
 

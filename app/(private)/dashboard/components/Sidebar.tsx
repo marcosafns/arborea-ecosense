@@ -1,5 +1,7 @@
 "use client";
 
+// app/(private)/dashboard/components/Sidebar.tsx
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
@@ -18,77 +20,81 @@ const NAV = [
 
 const LOGO_FILTER = "brightness(0) saturate(0) invert(17%) sepia(40%) saturate(800%) hue-rotate(95deg) brightness(40%)";
 
-export default function Sidebar() {
-  const pathname   = usePathname();
+interface SidebarProps {
+  // Chamado quando o usuário navega (para fechar o drawer no mobile)
+  onNavigate?: () => void;
+}
+
+export default function Sidebar({ onNavigate }: SidebarProps) {
+  const pathname    = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  const W = collapsed ? 64 : 230;
+  // No mobile (quando onNavigate existe) nunca colapsa — mostra sempre expandido
+  const isMobile = !!onNavigate;
+  const isCollapsed = isMobile ? false : collapsed;
+  const W = isCollapsed ? 64 : 230;
 
   return (
     <motion.aside
-      initial={{ x: -230, opacity: 0 }}
+      initial={isMobile ? { x: 0, opacity: 1 } : { x: -230, opacity: 0 }}
       animate={{ x: 0, opacity: 1, width: W }}
       transition={{ type: "spring", stiffness: 280, damping: 26 }}
       style={{
-        width: W, height: "100vh", position: "sticky", top: 0,
-        backgroundColor: "#ffffff", borderRight: "1px solid #e8ede9",
-        display: "flex", flexDirection: "column", padding: "20px 0",
+        width: isMobile ? 240 : W,
+        height: "100vh",
+        position: isMobile ? "relative" : "sticky",
+        top: 0,
+        backgroundColor: "#ffffff",
+        borderRight: "1px solid #e8ede9",
+        display: "flex", flexDirection: "column",
+        padding: "20px 0",
         flexShrink: 0, zIndex: 50, overflow: "visible",
-        boxShadow: "1px 0 0 #e8ede9",
+        boxShadow: isMobile ? "4px 0 24px #0f1f1218" : "1px 0 0 #e8ede9",
       }}
     >
-
-      {/* Toggle */}
-      <div style={{ position: "absolute", top: "50%", right: -13, transform: "translateY(-50%)", zIndex: 60 }}>
-        <motion.button
-          whileHover={{ scale: 1.15, backgroundColor: "#1a5c2e", borderColor: "#1a5c2e", color: "#ffffff" }}
-          whileTap={{ scale: 0.92 }}
-          onClick={() => setCollapsed(prev => !prev)}
-          title={collapsed ? "Expandir" : "Recolher"}
-          style={{
-            width: 26, height: 26, borderRadius: "50%",
-            backgroundColor: "#ffffff", border: "1.5px solid #e8ede9",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", color: "#9ab4a2",
-            boxShadow: "0 2px 8px #0f1f1218",
-            transition: "background-color 0.2s, border-color 0.2s, color 0.2s",
-          }}
-        >
-          <motion.div animate={{ rotate: collapsed ? 0 : 180 }} transition={{ duration: 0.3, type: "spring", stiffness: 300 }}>
-            <ChevronRight style={{ width: 13, height: 13 }} />
-          </motion.div>
-        </motion.button>
-      </div>
+      {/* Toggle — só no desktop */}
+      {!isMobile && (
+        <div style={{ position: "absolute", top: "50%", right: -13, transform: "translateY(-50%)", zIndex: 60 }}>
+          <motion.button
+            whileHover={{ scale: 1.15, backgroundColor: "#1a5c2e", borderColor: "#1a5c2e", color: "#ffffff" }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setCollapsed(prev => !prev)}
+            title={isCollapsed ? "Expandir" : "Recolher"}
+            style={{
+              width: 26, height: 26, borderRadius: "50%",
+              backgroundColor: "#ffffff", border: "1.5px solid #e8ede9",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "#9ab4a2",
+              boxShadow: "0 2px 8px #0f1f1218",
+              transition: "background-color 0.2s, border-color 0.2s, color 0.2s",
+            }}
+          >
+            <motion.div animate={{ rotate: isCollapsed ? 0 : 180 }} transition={{ duration: 0.3, type: "spring", stiffness: 300 }}>
+              <ChevronRight style={{ width: 13, height: 13 }} />
+            </motion.div>
+          </motion.button>
+        </div>
+      )}
 
       {/* Logo */}
       <div style={{
-        padding: collapsed ? "0 14px 20px" : "0 16px 20px",
+        padding: isCollapsed ? "0 14px 20px" : "0 16px 20px",
         borderBottom: "1px solid #e8ede9", marginBottom: 8,
         display: "flex", alignItems: "center",
-        justifyContent: collapsed ? "center" : "flex-start",
+        justifyContent: isCollapsed ? "center" : "flex-start",
         minHeight: 60,
       }}>
         <AnimatePresence mode="wait">
-          {collapsed ? (
-            /* Ícone só — ecosense-logo1.svg (marca/ícone) */
+          {isCollapsed ? (
             <motion.div key="icon" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
               <Link href="/dashboard" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-                <img
-                  src="/img/ecosense-logo1.svg"
-                  alt="Arborea EcoSense"
-                  style={{ height: 30, width: "auto", filter: LOGO_FILTER }}
-                />
+                <img src="/img/ecosense-logo1.svg" alt="Arborea EcoSense" style={{ height: 30, width: "auto", filter: LOGO_FILTER }} />
               </Link>
             </motion.div>
           ) : (
-            /* Logotipo completo — arborea-logotipo1.svg */
             <motion.div key="full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
               <Link href="/dashboard" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-                <img
-                  src="/img/ecosense-logotipo1.svg"
-                  alt="Arborea EcoSense"
-                  style={{ height: 30, width: "auto", filter: LOGO_FILTER }}
-                />
+                <img src="/img/ecosense-logotipo1.svg" alt="Arborea EcoSense" style={{ height: 30, width: "auto", filter: LOGO_FILTER }} />
               </Link>
             </motion.div>
           )}
@@ -97,7 +103,7 @@ export default function Sidebar() {
 
       {/* Label seção */}
       <AnimatePresence>
-        {!collapsed && (
+        {!isCollapsed && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} style={{ padding: "4px 22px 6px" }}>
             <span style={{ fontSize: 10, color: "#b0c4b8", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600 }}>Menu</span>
           </motion.div>
@@ -117,12 +123,13 @@ export default function Sidebar() {
             >
               <Link
                 href={href}
-                title={collapsed ? label : undefined}
+                onClick={onNavigate}
+                title={isCollapsed ? label : undefined}
                 style={{
                   display: "flex", alignItems: "center",
-                  gap: collapsed ? 0 : 10,
-                  padding: collapsed ? "10px 0" : "9px 12px",
-                  justifyContent: collapsed ? "center" : "flex-start",
+                  gap: isCollapsed ? 0 : 10,
+                  padding: isCollapsed ? "10px 0" : "9px 12px",
+                  justifyContent: isCollapsed ? "center" : "flex-start",
                   borderRadius: 10, textDecoration: "none",
                   color: active ? "#1a5c2e" : "#6b8f78",
                   fontSize: 13, fontWeight: active ? 600 : 400,
@@ -139,11 +146,9 @@ export default function Sidebar() {
                     transition: "background-color 0.15s, border-color 0.15s",
                   }}
                 />
-
                 <Icon style={{ width: 16, height: 16, flexShrink: 0, zIndex: 1, position: "relative" }} />
-
                 <AnimatePresence>
-                  {!collapsed && (
+                  {!isCollapsed && (
                     <motion.span
                       initial={{ opacity: 0, width: 0 }}
                       animate={{ opacity: 1, width: "auto" }}
@@ -155,17 +160,15 @@ export default function Sidebar() {
                     </motion.span>
                   )}
                 </AnimatePresence>
-
                 <AnimatePresence>
-                  {active && !collapsed && (
+                  {active && !isCollapsed && (
                     <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} style={{ zIndex: 1, position: "relative" }}>
                       <ChevronRight style={{ width: 12, height: 12 }} />
                     </motion.div>
                   )}
                 </AnimatePresence>
-
                 <AnimatePresence>
-                  {active && collapsed && (
+                  {active && isCollapsed && (
                     <motion.div
                       initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
                       style={{ position: "absolute", bottom: 5, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", backgroundColor: "#1a5c2e" }}
@@ -185,9 +188,8 @@ export default function Sidebar() {
         transition={{ delay: 0.5 }}
         style={{ padding: "12px 10px 0", borderTop: "1px solid #e8ede9" }}
       >
-        <LogoutButton collapsed={collapsed} />
+        <LogoutButton collapsed={isCollapsed} />
       </motion.div>
-
     </motion.aside>
   );
 }

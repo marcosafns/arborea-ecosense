@@ -7,11 +7,13 @@ import ChartsSkeleton from "../components/ChartsSkeleton";
 import SensorChart from "../components/SensorChart";
 import EmptyState, { EMPTY_STATES } from "../components/EmptyState";
 import { useToast } from "../components/Toast";
-import { Radio, GitCompare, LayoutGrid, X, Check, Info } from "lucide-react";
+import { Radio, GitCompare, LayoutGrid, X, Check, Info, Lock } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
+import { usePlan } from "@/hooks/usePlan";
+import { getHistoryStartDate } from "@/lib/plans";
 
 type Range    = "1h" | "6h" | "24h" | "7d";
 type ViewMode = "individual" | "compare";
@@ -21,6 +23,14 @@ const RANGE_MS: Record<Range, number> = {
   "6h":  6  * 60 * 60 * 1000,
   "24h": 24 * 60 * 60 * 1000,
   "7d":  7  * 24 * 60 * 60 * 1000,
+};
+
+// Quantos dias mínimos cada range exige no histórico
+const RANGE_MIN_DAYS: Record<Range, number> = {
+  "1h":  0,
+  "6h":  0,
+  "24h": 1,
+  "7d":  7,
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -99,6 +109,7 @@ export default function ChartsPage() {
   const [selectedSensors, setSelectedSensors] = useState<string[]>([]);
   const supabase = createClient();
   const { error } = useToast();
+  const { plan } = usePlan();
 
   const load = useCallback(async (r: Range = range) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -113,7 +124,15 @@ export default function ChartsPage() {
     if (stErr) { error("Erro ao carregar estações", stErr.message); setLoading(false); return; }
     if (!stationsData?.length) { setLoading(false); return; }
 
-    const since = new Date(Date.now() - RANGE_MS[r]).toISOString();
+    // Limite do range solicitado
+    const rangeSince = new Date(Date.now() - RANGE_MS[r]);
+
+    // Limite do plano — não deixa buscar além do permitido
+    const planSince = getHistoryStartDate(plan.id);
+
+    // Usa o mais restritivo dos dois (o mais recente)
+    const since = (rangeSince > planSince ? rangeSince : planSince).toISOString();
+
     const allSensorIds = stationsData.flatMap(s => (s.sensors ?? []).map((sen: any) => sen.id));
 
     const { data: readingsData, error: rdErr } = await supabase
@@ -139,11 +158,21 @@ export default function ChartsPage() {
     setStations(result);
     if (!selectedStation) setSelectedStation(result[0]?.id ?? null);
     setLoading(false);
-  }, [range, selectedStation]);
+  }, [range, selectedStation, plan.id]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [plan.id]);
 
-  const handleRangeChange = (r: Range) => { setRange(r); setLoading(true); load(r); };
+  // Verifica se um range está disponível no plano atual
+  const isRangeAllowed = (r: Range) => {
+    if (plan.historyDays === -1) return true;
+    return plan.historyDays >= RANGE_MIN_DAYS[r];
+  };
+
+  const handleRangeChange = (r: Range) => {
+    if (!isRangeAllowed(r)) return;
+    setRange(r); setLoading(true); load(r);
+  };
+
   const toggleSensor = (id: string) => setSelectedSensors(prev =>
     prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
   );
@@ -190,6 +219,11 @@ export default function ChartsPage() {
   const units      = Array.from(new Set(compareSensors.map(s => s.unit)));
   const mixedUnits = units.length > 1;
 
+  // Label do limite de histórico para exibir no header
+  const historyLabel = plan.historyDays === -1
+    ? "histórico ilimitado"
+    : `últimos ${plan.historyDays} dia${plan.historyDays !== 1 ? "s" : ""}`;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
@@ -200,10 +234,21 @@ export default function ChartsPage() {
       >
         <div>
           <h1 style={{ color: "#0f1f12", fontSize: 22, fontWeight: 700, fontFamily: "var(--font-syne)", marginBottom: 4 }}>Gráficos</h1>
-          <p style={{ color: "#7aaa8a", fontSize: 13 }}>Histórico detalhado por sensor</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <p style={{ color: "#7aaa8a", fontSize: 13 }}>Histórico detalhado por sensor</p>
+            {/* Badge do limite do plano */}
+            <span style={{
+              fontSize: 10, color: "#9ab4a2",
+              backgroundColor: "#f0f7f2", border: "1px solid #c8e0cf",
+              borderRadius: 999, padding: "2px 8px",
+            }}>
+              Plano {plan.name} · {historyLabel}
+            </span>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+
           {/* Modo toggle */}
           <div style={{ display: "flex", backgroundColor: "#f4f7f4", borderRadius: 10, padding: 3, gap: 2 }}>
             {([
@@ -225,17 +270,32 @@ export default function ChartsPage() {
             ))}
           </div>
 
-          {/* Range */}
+          {/* Range — bloqueado pelo plano */}
           <div style={{ display: "flex", gap: 4 }}>
-            {RANGES.map(r => (
-              <button key={r.value} onClick={() => handleRangeChange(r.value)} style={{
-                padding: "7px 14px", borderRadius: 8,
-                border: `1px solid ${range === r.value ? "#1a5c2e" : "#e8ede9"}`,
-                backgroundColor: range === r.value ? "#1a5c2e" : "#ffffff",
-                color: range === r.value ? "#ffffff" : "#9ab4a2",
-                fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-              }}>{r.label}</button>
-            ))}
+            {RANGES.map(r => {
+              const allowed = isRangeAllowed(r.value);
+              return (
+                <button
+                  key={r.value}
+                  onClick={() => handleRangeChange(r.value)}
+                  disabled={!allowed}
+                  title={!allowed ? `Disponível no plano com histórico de ${RANGE_MIN_DAYS[r.value]} dias ou mais` : undefined}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 4,
+                    padding: "7px 14px", borderRadius: 8,
+                    border: `1px solid ${!allowed ? "#f0f4f1" : range === r.value ? "#1a5c2e" : "#e8ede9"}`,
+                    backgroundColor: !allowed ? "#f8fbf8" : range === r.value ? "#1a5c2e" : "#ffffff",
+                    color: !allowed ? "#c8d8ce" : range === r.value ? "#ffffff" : "#9ab4a2",
+                    fontSize: 12, fontWeight: 500,
+                    cursor: allowed ? "pointer" : "not-allowed",
+                    fontFamily: "inherit", transition: "all 0.15s",
+                  }}
+                >
+                  {!allowed && <Lock style={{ width: 9, height: 9 }} />}
+                  {r.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Estação */}
@@ -280,7 +340,7 @@ export default function ChartsPage() {
                     description={`Nenhuma leitura nas últimas ${range}. Tente um período maior.`} />
                 </div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 460px), 1fr))", gap: 16 }}>
                   {currentStation.sensors.map((sensor, i) => (
                     <motion.div key={sensor.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
                       <SensorChart label={sensor.label} type={sensor.type} unit={sensor.unit}
@@ -302,7 +362,7 @@ export default function ChartsPage() {
             >
               {/* Seletor */}
               <div style={{ backgroundColor: "#ffffff", border: "1px solid #e8ede9", borderRadius: 16, padding: "20px 24px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
                   <div>
                     <div style={{ color: "#0f1f12", fontSize: 14, fontWeight: 600, marginBottom: 3 }}>Selecione os sensores para comparar</div>
                     <div style={{ color: "#9ab4a2", fontSize: 12 }}>Escolha 2 ou mais • {selectedSensors.length} selecionado{selectedSensors.length !== 1 ? "s" : ""}</div>
@@ -363,8 +423,7 @@ export default function ChartsPage() {
                     initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                     style={{ backgroundColor: "#ffffff", border: "1px solid #e8ede9", borderRadius: 16, padding: 24 }}
                   >
-                    {/* Título + aviso normalização */}
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 8 }}>
                       <div>
                         <div style={{ color: "#0f1f12", fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Comparação de Sensores</div>
                         <div style={{ color: "#9ab4a2", fontSize: 12 }}>{compareSensors.map(s => s.label).join(" vs ")}</div>
@@ -380,7 +439,6 @@ export default function ChartsPage() {
                       )}
                     </div>
 
-                    {/* Legenda */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
                       {compareSensors.map(sensor => (
                         <div key={sensor.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -390,7 +448,6 @@ export default function ChartsPage() {
                       ))}
                     </div>
 
-                    {/* Recharts */}
                     <ResponsiveContainer width="100%" height={320}>
                       <LineChart data={compareData} margin={{ top: 4, right: 12, left: -8, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f4f1" />
@@ -411,9 +468,8 @@ export default function ChartsPage() {
                       </LineChart>
                     </ResponsiveContainer>
 
-                    {/* Stats rápidas */}
                     <div style={{
-                      display: "grid", gridTemplateColumns: `repeat(${compareSensors.length}, 1fr)`,
+                      display: "grid", gridTemplateColumns: `repeat(${Math.min(compareSensors.length, 2)}, 1fr)`,
                       gap: 12, marginTop: 20, paddingTop: 20, borderTop: "1px solid #f0f4f1",
                     }}>
                       {compareSensors.map(sensor => {
@@ -447,6 +503,7 @@ export default function ChartsPage() {
               </AnimatePresence>
             </motion.div>
           )}
+
         </AnimatePresence>
       )}
     </div>

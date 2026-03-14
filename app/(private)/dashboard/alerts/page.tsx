@@ -31,20 +31,14 @@ export default function AlertsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Busca alertas com sensor + estação
     const { data, error: err } = await supabase
       .from("alerts")
       .select("*, sensors(id, type, label, station_id, stations(name, client_id))")
       .order("created_at", { ascending: false })
       .limit(100);
 
-    if (err) {
-      error("Erro ao carregar alertas", err.message);
-      setLoading(false);
-      return;
-    }
+    if (err) { error("Erro ao carregar alertas", err.message); setLoading(false); return; }
 
-    // Filtra só alertas do usuário atual
     const userAlerts = (data ?? []).filter(
       (a: any) => a.sensors?.stations?.client_id === user.id
     );
@@ -62,12 +56,7 @@ export default function AlertsPage() {
       .update({ resolved_at: new Date().toISOString() })
       .eq("id", alertId);
 
-    if (err) {
-      error("Erro ao resolver alerta", err.message);
-      setResolving(null);
-      return;
-    }
-
+    if (err) { error("Erro ao resolver alerta", err.message); setResolving(null); return; }
     success("Alerta resolvido", "O alerta foi marcado como resolvido.");
     await load();
     setResolving(null);
@@ -75,57 +64,42 @@ export default function AlertsPage() {
 
   const handleResolveAll = async () => {
     const activeIds = alerts.filter(a => !a.resolved_at).map(a => a.id);
-    if (!activeIds.length) {
-      info("Nenhum alerta ativo", "Não há alertas pendentes para resolver.");
-      return;
-    }
+    if (!activeIds.length) { info("Nenhum alerta ativo", "Não há alertas pendentes para resolver."); return; }
 
     const { error: err } = await supabase
       .from("alerts")
       .update({ resolved_at: new Date().toISOString() })
       .in("id", activeIds);
 
-    if (err) {
-      error("Erro ao resolver alertas", err.message);
-      return;
-    }
-
-    success("Todos resolvidos!", `${activeIds.length} alerta${activeIds.length !== 1 ? "s" : ""} marcado${activeIds.length !== 1 ? "s" : ""} como resolvido${activeIds.length !== 1 ? "s" : ""}.`);
+    if (err) { error("Erro ao resolver alertas", err.message); return; }
+    success("Todos resolvidos!", `${activeIds.length} alerta${activeIds.length !== 1 ? "s" : ""} resolvido${activeIds.length !== 1 ? "s" : ""}.`);
     await load();
   };
 
   if (loading) return <AlertsSkeleton />;
 
-  const filtered = alerts.filter(a => {
-    if (filter === "active")   return !a.resolved_at;
-    if (filter === "resolved") return  a.resolved_at;
-    return true;
-  });
-
+  const filtered      = alerts.filter(a => filter === "active" ? !a.resolved_at : filter === "resolved" ? a.resolved_at : true);
   const activeCount   = alerts.filter(a => !a.resolved_at).length;
   const resolvedCount = alerts.filter(a =>  a.resolved_at).length;
 
   const STATS = [
-    { label: "Total",      value: alerts.length,  color: "#9ab4a2", bg: "#f7f8f7", border: "#e8ede9" },
-    { label: "Ativos",     value: activeCount,    color: activeCount > 0 ? "#e05252" : "#1a5c2e", bg: activeCount > 0 ? "#fdf3f3" : "#f0f7f2", border: activeCount > 0 ? "#f5c6c6" : "#c8e0cf" },
-    { label: "Resolvidos", value: resolvedCount,  color: "#1a5c2e", bg: "#f0f7f2", border: "#c8e0cf" },
+    { label: "Total",      value: alerts.length,  color: "#9ab4a2" },
+    { label: "Ativos",     value: activeCount,    color: activeCount > 0 ? "#e05252" : "#1a5c2e" },
+    { label: "Resolvidos", value: resolvedCount,  color: "#1a5c2e" },
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}
+        style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
       >
         <div>
-          <h1 style={{
-            color: "#0f1f12", fontSize: 22, fontWeight: 700,
-            fontFamily: "var(--font-syne)", marginBottom: 4,
-          }}>
+          <h1 style={{ color: "#0f1f12", fontSize: 22, fontWeight: 700, fontFamily: "var(--font-syne)", marginBottom: 4 }}>
             Alertas
           </h1>
           <p style={{ color: "#7aaa8a", fontSize: 13 }}>
@@ -133,7 +107,7 @@ export default function AlertsPage() {
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <motion.button
             whileHover={{ scale: 1.02, backgroundColor: "#f0f7f2" }}
             whileTap={{ scale: 0.97 }}
@@ -143,11 +117,11 @@ export default function AlertsPage() {
               padding: "9px 14px", borderRadius: 10,
               border: "1px solid #e8ede9", backgroundColor: "#ffffff",
               color: "#9ab4a2", fontSize: 13, cursor: "pointer",
-              transition: "background-color 0.15s",
+              transition: "background-color 0.15s", fontFamily: "inherit",
             }}
           >
             <RefreshCw style={{ width: 13, height: 13 }} />
-            Atualizar
+            <span className="btn-label">Atualizar</span>
           </motion.button>
           {activeCount > 0 && (
             <motion.button
@@ -160,22 +134,22 @@ export default function AlertsPage() {
                 border: "none", backgroundColor: "#1a5c2e",
                 color: "#ffffff", fontSize: 13, fontWeight: 600,
                 cursor: "pointer", boxShadow: "0 4px 16px #1a5c2e33",
-                transition: "background-color 0.2s",
+                transition: "background-color 0.2s", fontFamily: "inherit",
               }}
             >
               <CheckCircle style={{ width: 13, height: 13 }} />
-              Resolver todos
+              <span className="btn-label">Resolver todos</span>
             </motion.button>
           )}
         </div>
       </motion.div>
 
-      {/* Stats */}
+      {/* Stats — 3 colunas sempre, menores no mobile */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}
       >
         {STATS.map((stat, i) => (
           <motion.div
@@ -185,32 +159,26 @@ export default function AlertsPage() {
             transition={{ delay: 0.15 + i * 0.06 }}
             style={{
               backgroundColor: "#ffffff", border: "1px solid #e8ede9",
-              borderRadius: 14, padding: "18px 20px",
+              borderRadius: 14, padding: "16px 18px",
               boxShadow: "0 1px 4px #0f1f1206",
             }}
           >
-            <div style={{
-              color: "#9ab4a2", fontSize: 11, marginBottom: 8,
-              textTransform: "uppercase", letterSpacing: "0.08em",
-            }}>
+            <div style={{ color: "#9ab4a2", fontSize: 10, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
               {stat.label}
             </div>
-            <div style={{
-              color: stat.color, fontSize: 32, fontWeight: 700,
-              fontFamily: "var(--font-geist-mono)", lineHeight: 1,
-            }}>
+            <div style={{ color: stat.color, fontSize: 28, fontWeight: 700, fontFamily: "var(--font-geist-mono)", lineHeight: 1 }}>
               {stat.value}
             </div>
           </motion.div>
         ))}
       </motion.div>
 
-      {/* Filter tabs */}
+      {/* Filtros */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        style={{ display: "flex", gap: 8 }}
+        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
       >
         {(["all", "active", "resolved"] as FilterType[]).map(f => (
           <button
@@ -230,20 +198,17 @@ export default function AlertsPage() {
         ))}
       </motion.div>
 
-      {/* Lista de alertas ou estado vazio */}
+      {/* Lista */}
       {filtered.length === 0 ? (
-        <div style={{
-          backgroundColor: "#ffffff", border: "1px solid #e8ede9",
-          borderRadius: 16,
-        }}>
+        <div style={{ backgroundColor: "#ffffff", border: "1px solid #e8ede9", borderRadius: 16 }}>
           <EmptyState {...(filter === "all" ? EMPTY_STATES.alerts : EMPTY_STATES.alertsFiltered)} />
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <AnimatePresence>
             {filtered.map((alert, i) => {
-              const cfg        = ALERT_COLORS[alert.type] ?? ALERT_COLORS.anomaly;
-              const isResolved = !!alert.resolved_at;
+              const cfg         = ALERT_COLORS[alert.type] ?? ALERT_COLORS.anomaly;
+              const isResolved  = !!alert.resolved_at;
               const isResolving = resolving === alert.id;
 
               return (
@@ -256,12 +221,13 @@ export default function AlertsPage() {
                   style={{
                     backgroundColor: "#ffffff",
                     border: `1px solid ${isResolved ? "#e8ede9" : cfg.border}`,
-                    borderRadius: 14, padding: "16px 20px",
-                    display: "flex", alignItems: "center",
-                    justifyContent: "space-between", gap: 16,
+                    borderRadius: 14, padding: "14px 16px",
+                    display: "flex", alignItems: "flex-start",
+                    justifyContent: "space-between", gap: 12,
                     opacity: isResolved ? 0.65 : 1,
                     position: "relative", overflow: "hidden",
                     boxShadow: "0 1px 4px #0f1f1206",
+                    flexWrap: "wrap",
                   }}
                 >
                   {/* Accent left */}
@@ -273,49 +239,38 @@ export default function AlertsPage() {
                     }} />
                   )}
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 14, paddingLeft: isResolved ? 0 : 6 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, paddingLeft: isResolved ? 0 : 6, flex: 1, minWidth: 0 }}>
                     <div style={{
-                      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                      width: 34, height: 34, borderRadius: 9, flexShrink: 0,
                       backgroundColor: isResolved ? "#f7f8f7" : cfg.bg,
                       border: `1px solid ${isResolved ? "#e8ede9" : cfg.border}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
                       {isResolved
-                        ? <CheckCircle  style={{ width: 15, height: 15, color: "#9ab4a2" }} />
-                        : <AlertTriangle style={{ width: 15, height: 15, color: cfg.color }} />
-                      }
+                        ? <CheckCircle   style={{ width: 14, height: 14, color: "#9ab4a2" }} />
+                        : <AlertTriangle style={{ width: 14, height: 14, color: cfg.color  }} />}
                     </div>
 
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <p style={{
                         color: isResolved ? "#9ab4a2" : "#0f1f12",
-                        fontSize: 13, fontWeight: 500, marginBottom: 4,
+                        fontSize: 13, fontWeight: 500, marginBottom: 6,
                         textDecoration: isResolved ? "line-through" : "none",
+                        wordBreak: "break-word",
                       }}>
                         {alert.message}
                       </p>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{
-                          fontSize: 11, color: "#b0c4b8",
-                          backgroundColor: "#f7f8f7", border: "1px solid #e8ede9",
-                          borderRadius: 6, padding: "2px 8px",
-                        }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, color: "#b0c4b8", backgroundColor: "#f7f8f7", border: "1px solid #e8ede9", borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" }}>
                           {alert.sensors?.label ?? "—"}
                         </span>
-                        <span style={{
-                          fontSize: 11, color: "#b0c4b8",
-                          backgroundColor: "#f7f8f7", border: "1px solid #e8ede9",
-                          borderRadius: 6, padding: "2px 8px",
-                        }}>
+                        <span style={{ fontSize: 11, color: "#b0c4b8", backgroundColor: "#f7f8f7", border: "1px solid #e8ede9", borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" }}>
                           {alert.sensors?.stations?.name ?? "—"}
                         </span>
                         <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#c8d8ce" }}>
                           <Clock style={{ width: 10, height: 10 }} />
-                          <span style={{ fontSize: 11 }}>
-                            {new Date(alert.created_at).toLocaleString("pt-BR", {
-                              day: "2-digit", month: "2-digit",
-                              hour: "2-digit", minute: "2-digit",
-                            })}
+                          <span style={{ fontSize: 11, whiteSpace: "nowrap" }}>
+                            {new Date(alert.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
                       </div>
@@ -329,20 +284,18 @@ export default function AlertsPage() {
                       onClick={() => handleResolve(alert.id)}
                       disabled={!!isResolving}
                       style={{
-                        display: "flex", alignItems: "center", gap: 6,
-                        padding: "7px 14px", borderRadius: 8,
+                        display: "flex", alignItems: "center", gap: 5,
+                        padding: "7px 12px", borderRadius: 8,
                         border: "1px solid #e8ede9", backgroundColor: "#ffffff",
                         color: "#1a5c2e", fontSize: 12, fontWeight: 500,
                         cursor: isResolving ? "not-allowed" : "pointer",
                         flexShrink: 0, fontFamily: "inherit",
                         transition: "all 0.15s", opacity: isResolving ? 0.6 : 1,
+                        alignSelf: "flex-start",
                       }}
                     >
                       {isResolving ? (
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-                        >
+                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}>
                           <RefreshCw style={{ width: 11, height: 11 }} />
                         </motion.div>
                       ) : (
@@ -359,6 +312,12 @@ export default function AlertsPage() {
           </AnimatePresence>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 480px) {
+          .btn-label { display: none; }
+        }
+      `}</style>
     </div>
   );
 }
