@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
+import { DEFAULT_PLAN_ID } from "@/lib/plans";
 
 function Particle({ delay, x, size }: { delay: number; x: number; size: number }) {
   return (
@@ -26,8 +27,24 @@ const PARTICLES = Array.from({ length: 12 }, (_, i) => ({
   delay: i * 0.7, x: 5 + i * 8, size: 3 + (i % 4) * 2,
 }));
 
+// Tradução dos erros do Supabase
+const ERROR_MAP: Record<string, string> = {
+  "User already registered":                    "Este email já está cadastrado. Faça login.",
+  "Invalid login credentials":                  "Email ou senha incorretos.",
+  "Email not confirmed":                        "Confirme seu email antes de entrar.",
+  "Password should be at least 6 characters":   "A senha deve ter no mínimo 6 caracteres.",
+  "Unable to validate email address: invalid format": "Email inválido.",
+  "signup_disabled":                            "Cadastro temporariamente desabilitado.",
+  "email_address_not_authorized":               "Este email não está autorizado.",
+  "over_email_send_rate_limit":                 "Muitas tentativas. Aguarde alguns minutos.",
+};
+
+function translateError(msg: string): string {
+  return ERROR_MAP[msg] ?? msg ?? "Ocorreu um erro. Tente novamente.";
+}
+
 export default function LoginPage() {
-  const router = useRouter();
+  const router   = useRouter();
   const supabase = createClient();
 
   const [email,        setEmail]        = useState("");
@@ -45,6 +62,7 @@ export default function LoginPage() {
   const handleSubmit = async () => {
     if (!email || !password) return;
     setLoading(true); setError(""); setSuccess("");
+
     try {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -52,38 +70,43 @@ export default function LoginPage() {
         window.location.href = "/dashboard";
 
       } else {
+        // ── Cadastro ──
         const { data, error } = await supabase.auth.signUp({
           email, password,
           options: { emailRedirectTo: `${window.location.origin}/dashboard` },
         });
         if (error) throw error;
 
-        // Cria o perfil na tabela clients se ainda não existir
+        // Cria o perfil na tabela clients com plano Semente (UUID real)
         if (data.user) {
-          await supabase.from("clients").upsert({
-            id:       data.user.id,
-            plan_id:  "semente",
-            full_name: "",
-            company:  "",
-            city:     "",
-          }, { onConflict: "id", ignoreDuplicates: true });
+          const { error: profileErr } = await supabase
+            .from("clients")
+            .upsert({
+              id:       data.user.id,
+              plan_id:  DEFAULT_PLAN_ID,   // UUID do plano Semente
+              full_name: "",
+              company:  "",
+              city:     "",
+            }, { onConflict: "id", ignoreDuplicates: true });
+
+          if (profileErr) {
+            console.error("Erro ao criar perfil:", profileErr.message);
+          }
         }
 
-      setSuccess("Verifique seu email para confirmar o cadastro!");
+        // Se confirmação de email está desabilitada, vai direto pro dashboard
+        if (data.session) {
+          window.location.href = "/dashboard";
+        } else {
+          setSuccess("Verifique seu email para confirmar o cadastro!");
+        }
+      }
+    } catch (err: any) {
+      setError(translateError(err.message));
+    } finally {
+      setLoading(false);
     }
-  } catch (err: any) {
-    // Traduz erros comuns do Supabase
-    const msg: Record<string, string> = {
-      "User already registered":          "Este email já está cadastrado. Faça login.",
-      "Invalid login credentials":        "Email ou senha incorretos.",
-      "Email not confirmed":              "Confirme seu email antes de entrar.",
-      "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres.",
-    };
-    setError(msg[err.message] ?? err.message ?? "Ocorreu um erro. Tente novamente.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const isReady = email.length > 0 && password.length >= 6;
 
@@ -100,11 +123,7 @@ export default function LoginPage() {
           padding: "44px 52px",
         }}
       >
-        <div style={{
-          position: "absolute", inset: 0,
-          backgroundImage: `linear-gradient(#1a5c2e10 1px, transparent 1px), linear-gradient(90deg, #1a5c2e10 1px, transparent 1px)`,
-          backgroundSize: "40px 40px", pointerEvents: "none",
-        }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: `linear-gradient(#1a5c2e10 1px, transparent 1px), linear-gradient(90deg, #1a5c2e10 1px, transparent 1px)`, backgroundSize: "40px 40px", pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: "-120px", left: "-80px", width: 500, height: 500, background: "radial-gradient(circle, #1a5c2e40 0%, transparent 65%)", pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: "20%", right: "-60px", width: 300, height: 300, background: "radial-gradient(circle, #2d8a4e18 0%, transparent 65%)", pointerEvents: "none" }} />
 
@@ -114,40 +133,17 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Logo esquerda */}
-        <motion.div
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          style={{ position: "relative", zIndex: 1 }}
-        >
+        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ position: "relative", zIndex: 1 }}>
           <img src="/img/ecosense-logo1.svg" alt="Arborea EcoSense" style={{ height: 36, width: "auto" }} />
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.15 }}
-          style={{ position: "relative", zIndex: 1 }}
-        >
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            border: "1px solid #1a5c2e60", borderRadius: 999, padding: "5px 14px", marginBottom: 32,
-          }}>
-            <motion.span
-              animate={{ opacity: [1, 0.3, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#4ade80", display: "block" }}
-            />
-            <span style={{ color: "#4ade80", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 500 }}>
-              Sistema operacional
-            </span>
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.15 }} style={{ position: "relative", zIndex: 1 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, border: "1px solid #1a5c2e60", borderRadius: 999, padding: "5px 14px", marginBottom: 32 }}>
+            <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity }} style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#4ade80", display: "block" }} />
+            <span style={{ color: "#4ade80", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 500 }}>Sistema operacional</span>
           </div>
 
-          <h2 style={{
-            color: "#ffffff", fontSize: 42, fontWeight: 800, lineHeight: 1.1,
-            marginBottom: 20, fontFamily: "var(--font-syne)", letterSpacing: "-0.02em",
-          }}>
+          <h2 style={{ color: "#ffffff", fontSize: 42, fontWeight: 800, lineHeight: 1.1, marginBottom: 20, fontFamily: "var(--font-syne)", letterSpacing: "-0.02em" }}>
             Sua floresta,<br />
             <span style={{ background: "linear-gradient(135deg, #4ade80, #1a5c2e)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               em tempo real.
@@ -157,21 +153,7 @@ export default function LoginPage() {
           <p style={{ color: "#4a7a5a", fontSize: 14, lineHeight: 1.8, maxWidth: 300 }}>
             Sensores inteligentes + painel interativo. Monitore temperatura, pH, umidade e muito mais direto do seu smartphone.
           </p>
-
-          <div style={{ display: "flex", gap: 0, marginTop: 48, border: "1px solid #1a5c2e30", borderRadius: 16, overflow: "hidden" }}>
-            {[{ value: "24/7", label: "Uptime" }, { value: "< 1s", label: "Latência" }, { value: "8+", label: "Variáveis" }].map((s, i) => (
-              <div key={s.label} style={{ flex: 1, padding: "20px 0", textAlign: "center", borderRight: i < 2 ? "1px solid #1a5c2e30" : "none" }}>
-                <div style={{ color: "#fff", fontSize: 20, fontWeight: 700, fontFamily: "var(--font-syne)" }}>{s.value}</div>
-                <div style={{ color: "#3d6b4a", fontSize: 11, marginTop: 3, textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
         </motion.div>
-
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          style={{ color: "#2d4a36", fontSize: 11, position: "relative", zIndex: 1 }}>
-          © 2025 Arborea Inovações · Todos os direitos reservados
-        </motion.p>
       </div>
 
       {/* Painel direito */}
@@ -180,14 +162,7 @@ export default function LoginPage() {
 
         {/* Logo mobile */}
         <div className="lg:hidden" style={{ marginBottom: 40, display: "flex", alignItems: "center", position: "relative", zIndex: 1 }}>
-          <img
-            src="/img/ecosense-logo1.svg"
-            alt="Arborea EcoSense"
-            style={{
-              height: 30, width: "auto",
-              filter: "brightness(0) saturate(0) invert(17%) sepia(40%) saturate(800%) hue-rotate(95deg) brightness(40%)",
-            }}
-          />
+          <img src="/img/ecosense-logo1.svg" alt="Arborea EcoSense" style={{ height: 30, width: "auto", filter: "brightness(0) saturate(0) invert(17%) sepia(40%) saturate(800%) hue-rotate(95deg) brightness(40%)" }} />
         </div>
 
         <motion.div

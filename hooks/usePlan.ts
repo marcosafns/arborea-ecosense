@@ -1,27 +1,22 @@
 // hooks/usePlan.ts
-// Hook que carrega o plano do usuário e expõe os limites
-
 "use client";
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getPlan, type PlanConfig } from "@/lib/plans";
+import { getPlan, DEFAULT_PLAN_ID, type PlanConfig } from "@/lib/plans";
 
 interface UsePlanReturn {
-  plan:          PlanConfig;
-  planId:        string;
-  loading:       boolean;
-  // limites prontos para usar nos componentes:
-  stationsLeft:  number | null;   // null = ilimitado
-  sensorsLeft:   number | null;   // null = ilimitado
+  plan:         PlanConfig;
+  planId:       string;
+  loading:      boolean;
+  stationsLeft: number | null;  // null = ilimitado
+  sensorsLeft:  number | null;
 }
 
 export function usePlan(): UsePlanReturn {
   const supabase = createClient();
-  const [planId,   setPlanId]   = useState<string>("semente");
-  const [loading,  setLoading]  = useState(true);
-
-  // Contadores para exibir "restam X slots"
+  const [planId,       setPlanId]       = useState<string>(DEFAULT_PLAN_ID);
+  const [loading,      setLoading]      = useState(true);
   const [stationCount, setStationCount] = useState(0);
   const [sensorCount,  setSensorCount]  = useState(0);
 
@@ -30,22 +25,24 @@ export function usePlan(): UsePlanReturn {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      // Busca plano do cliente
+      // Busca plan_id (UUID) do cliente
       const { data: client } = await supabase
         .from("clients")
         .select("plan_id")
         .eq("id", user.id)
         .single();
 
-      const id = client?.plan_id ?? "semente";
+      // Usa o UUID retornado ou o default (Semente)
+      const id = client?.plan_id ?? DEFAULT_PLAN_ID;
       setPlanId(id);
 
-      // Conta estações e sensores atuais
+      // Conta estações
       const { count: stCount } = await supabase
         .from("stations")
         .select("*", { count: "exact", head: true })
         .eq("client_id", user.id);
 
+      // Conta sensores
       const { data: stations } = await supabase
         .from("stations")
         .select("id")
